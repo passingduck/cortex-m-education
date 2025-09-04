@@ -1,0 +1,47 @@
+# Build directories
+**/build/
+**/bin/
+**/obj/
+
+# Compiled files
+*.o
+*.elf
+*.bin
+*.hex
+*.map
+
+# Editor and IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# System files
+Thumbs.db
+*.bak
+*.orig
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Dependencies
+node_modules/
+venv/
+env/
+__pycache__/
+*.pyc
+
+# OS generated files
+.directory
+.fuse_hidden*
+.nfs*
