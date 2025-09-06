@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# 05. Register & ALU Demo 디버그 스크립트
+
+echo "=== Cortex-M33 Register & ALU Demo 디버그 모드 ==="
+echo
+
+# 빌드가 되어있는지 확인
+if [ ! -f "build/cortex-m33-register-demo.elf" ]; then
+    echo "빌드 파일이 없습니다. 먼저 빌드를 실행하세요:"
+    echo "  make"
+    exit 1
+fi
+
+echo "QEMU GDB 서버 시작 중..."
+echo "다른 터미널에서 다음 명령어로 GDB 연결:"
+echo "  gdb-multiarch build/cortex-m33-register-demo.elf"
+echo "  (gdb) target remote :1234"
+echo "  (gdb) load"
+echo "  (gdb) break main"
+echo "  (gdb) continue"
+echo
+echo "종료하려면 Ctrl+C를 누르세요."
+echo
+
+make debug

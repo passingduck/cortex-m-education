@@ -183,6 +183,26 @@ arm-none-eabi-gdb build/cortex-m33-hello-world.elf
   - 동적 배열, 연결 리스트, 문자열 생성
   - Bump Allocator의 한계 (메모리 해제 불가) 확인
 
+### [05. General Register & ALU](./05-register-alu/)
+**주제**: CPU 레지스터와 ALU 연산 심화 학습
+
+- **학습 내용**:
+  - ARM Cortex-M33 레지스터 구조 (R0-R15, CPSR, 특수 레지스터)
+  - ALU의 산술/논리/시프트/비교 연산
+  - ISA에 따른 레지스터 상태 변화 관찰
+  - 플래그 레지스터(CPSR) 동작 원리
+
+- **핵심 실습**:
+  - 다양한 연산자 실시간 관찰
+  - 조건부 명령 실행과 플래그 분석
+  - 스택 연산과 레지스터 상호작용
+  - GDB/SungDB MCP를 통한 상세 분석
+
+- **주요 관찰 포인트**:
+  - ADD R2, R0, R1 실행 시 CPSR 플래그 변화
+  - 시프트 연산(LSL/LSR/ASR)의 비트 레벨 동작
+  - 조건부 실행(MOVGT, MOVLE)과 분기 최적화
+  - 레지스터 재사용 패턴과 성능 영향
 
 ### 프로젝트 구조
 ```
@@ -199,6 +219,9 @@ cortex-m-education/
 ├── 04-heap-implementation/    # 힙 구현 및 분석
 │   ├── src/main.c             # Bump Allocator 구현
 │   └── README.md              # 동적 할당 학습
+├── 05-register-alu/           # 레지스터 & ALU 분석
+│   ├── src/main.c             # 다양한 연산 실습
+│   └── README.md              # CPU 구조 심화 학습
 └── README.md                  # 이 파일
 ```
 
