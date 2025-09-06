@@ -102,29 +102,6 @@ arm-none-eabi-gdb build/cortex-m33-hello-world.elf
   2612      12      48    2672     a70 cortex-m33-hello-world.elf
   ```
 
-### [05. Non-secure 메모리 시뮬레이션](./05-nonsecure-transition/)
-**주제**: 분리된 메모리 영역과 TrustZone 기초
-
-- **학습 내용**:
-  - Non-secure 메모리 영역 개념
-  - 코드와 데이터의 메모리 분리
-  - TrustZone 아키텍처 기초
-  - 멀티 메모리 구성 이해
-
-- **핵심 예제**:
-  ```c
-  // NS CODE (0x00000000): 코드 영역
-  void ns_main(void);
-  
-  // NS RAM (0x20000000): 데이터/스택 영역
-  static int ns_static_var = 0x12345678;
-  ```
-
-- **특징**:
-  - 교육용 TrustZone 시뮬레이션
-  - 분리된 메모리 영역 구성
-  - 실제 보안 시스템의 기초 개념
-
 ### [03. 스택 분석](./03-stack-analysis/)
 **주제**: 함수 호출, 재귀, 스택 오버플로우
 
