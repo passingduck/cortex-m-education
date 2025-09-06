@@ -1,8 +1,49 @@
 # Cortex-M Education Project 🎓
 
-**SungDB MCP를 활용한 Cortex-M 임베디드 시스템 핵심 개념 학습**
+**GDB를 활용한 Cortex-M 임베디드 시스템 핵심 개념 학습**
 
-이 프로젝트는 Cortex-M33 마이크로컨트롤러에서 실행되는 실습을 통해 임베디드 시스템의 핵심 개념들을 이해할 수 있도록 구성된 교육 자료입니다. QEMU 에뮬레이터와 SungDB MCP를 활용하여 실제 디버깅 환경에서 학습할 수 있습니다.
+이 프로젝트는 Cortex-M33 마이크로컨트롤러에서 실행되는 실습을 통해 임베디드 시스템의 핵심 개념들을 이해할 수 있도록 구성된 교육 자료입니다. QEMU 에뮬레이터와 GDB 디버거를 활용하여 실제 디버깅 환경에서 학습할 수 있습니다.
+
+## 🛠️ 개발 환경 설정
+
+### 필수 도구 설치
+```bash
+# ARM 툴체인 및 QEMU 설치 (Ubuntu/Debian)
+sudo apt update
+sudo apt install -y gcc-arm-none-eabi gdb-multiarch qemu-system-arm
+
+# macOS의 경우
+brew install arm-none-eabi-gcc qemu
+
+# Windows의 경우 (WSL2 사용 권장)
+# WSL2에서 위의 Ubuntu 명령어 사용
+```
+
+### GDB와 QEMU 연결 방법
+```bash
+# 터미널 1: QEMU를 GDB 서버 모드로 실행
+qemu-system-arm -machine mps2-an505 -cpu cortex-m33 \
+    -kernel build/cortex-m33-hello-world.elf \
+    -nographic -serial stdio -semihosting \
+    -s -S
+
+# 터미널 2: GDB 연결
+arm-none-eabi-gdb build/cortex-m33-hello-world.elf
+(gdb) target remote localhost:1234
+(gdb) load
+(gdb) continue
+```
+
+### 메모리 맵 (QEMU MPS2-AN505 단순화)
+```
+0x10000000 - 0x1007FFFF : S_CODE_BOOT (512KB)
+  ├─ 0x10000000+ : TEXT, DATA, BSS 영역 (모든 프로그램 요소)
+  └─ 0x1007FFFF  : STACK 영역 (위에서 아래로 성장)
+
+0x20000000 - 0x2007FFFF : RAM (512KB) - 사용하지 않음
+```
+
+**QEMU 특성**: 단순화를 위해 모든 코드, 데이터, 스택을 S_CODE_BOOT 영역에 배치합니다. 이는 QEMU MPS2-AN505에서 가장 안정적으로 동작하는 메모리 배치입니다.
 
 ## 🎯 학습 목표
 
@@ -28,11 +69,11 @@
   make && qemu-system-arm -machine mps2-an505 -cpu cortex-m33 -kernel build/cortex-m33-hello-world.elf -nographic -serial stdio -semihosting
   ```
 
-- **SungDB MCP 활용**:
-  - GDB 세션 관리
-  - 브레이크포인트 설정
-  - 단계별 실행 추적
-  - 레지스터 및 메모리 상태 확인
+- **GDB 디버깅 활용**:
+  - 브레이크포인트 설정 및 관리
+  - 단계별 실행 추적 (step, next, continue)
+  - 레지스터 및 메모리 상태 확인 (info registers, x 명령어)
+  - 함수 호출 스택 추적 (backtrace)
 
 ### [02. 메모리 레이아웃 분석](./02-memory-layout/)
 **주제**: TEXT, DATA, BSS 영역과 x^16 함수 구현
@@ -60,6 +101,29 @@
   text    data     bss     dec     hex filename
   2612      12      48    2672     a70 cortex-m33-hello-world.elf
   ```
+
+### [05. Non-secure 메모리 시뮬레이션](./05-nonsecure-transition/)
+**주제**: 분리된 메모리 영역과 TrustZone 기초
+
+- **학습 내용**:
+  - Non-secure 메모리 영역 개념
+  - 코드와 데이터의 메모리 분리
+  - TrustZone 아키텍처 기초
+  - 멀티 메모리 구성 이해
+
+- **핵심 예제**:
+  ```c
+  // NS CODE (0x00000000): 코드 영역
+  void ns_main(void);
+  
+  // NS RAM (0x20000000): 데이터/스택 영역
+  static int ns_static_var = 0x12345678;
+  ```
+
+- **특징**:
+  - 교육용 TrustZone 시뮬레이션
+  - 분리된 메모리 영역 구성
+  - 실제 보안 시스템의 기초 개념
 
 ### [03. 스택 분석](./03-stack-analysis/)
 **주제**: 함수 호출, 재귀, 스택 오버플로우
@@ -119,18 +183,6 @@
   - 동적 배열, 연결 리스트, 문자열 생성
   - Bump Allocator의 한계 (메모리 해제 불가) 확인
 
-## 🛠️ 개발 환경 설정
-
-### 필수 도구 설치
-```bash
-# ARM 툴체인 및 QEMU 설치
-sudo apt update
-sudo apt install -y gcc-arm-none-eabi gdb-multiarch qemu-system-arm
-
-# SungDB MCP 서버 설정
-cd ~/sungdb-mcp
-./start_server.sh --http  # 디버깅용 HTTP 모드
-```
 
 ### 프로젝트 구조
 ```
@@ -166,18 +218,25 @@ for dir in 01-main-execution 02-memory-layout 03-stack-analysis 04-heap-implemen
 done
 ```
 
-### 2. SungDB MCP 디버깅 세션
+### 2. GDB 디버깅 세션 예제
 ```bash
-# HTTP 모드로 MCP 서버 시작
-cd ~/sungdb-mcp && ./start_server.sh --http
+# 예제: 01-main-execution 디버깅
+cd 01-main-execution
+make
 
-# GDB 세션 시작 예제
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_start",
-    "arguments": {"gdb_path": "arm-none-eabi-gdb"}
-  }'
+# 터미널 1: QEMU 실행 (GDB 서버 모드)
+qemu-system-arm -machine mps2-an505 -cpu cortex-m33 \
+    -kernel build/cortex-m33-hello-world.elf \
+    -nographic -serial stdio -semihosting -s -S
+
+# 터미널 2: GDB 연결 및 디버깅
+arm-none-eabi-gdb build/cortex-m33-hello-world.elf
+(gdb) target remote localhost:1234
+(gdb) load
+(gdb) break main
+(gdb) continue
+(gdb) info registers
+(gdb) step
 ```
 
 ## 📊 학습 성과 확인
@@ -192,12 +251,12 @@ curl -X POST http://localhost:8000/tools/call \
 
 ### 핵심 개념 정리
 
-#### 메모리 영역별 특성
-- **TEXT**: 프로그램 코드 + 상수, Flash/ROM, 읽기 전용
-- **DATA**: 초기화된 전역변수, RAM, 부팅 시 ROM에서 복사
-- **BSS**: 초기화되지 않은 전역변수, RAM, 부팅 시 0으로 설정
-- **Stack**: 지역변수 + 함수 호출, RAM, 자동 관리
-- **Heap**: 동적 할당, RAM, 프로그래머 관리
+#### 메모리 영역별 특성 (QEMU MPS2-AN505 단순화)
+- **TEXT**: 프로그램 코드 + 상수, 0x10000000+ (S_CODE_BOOT), 읽기 전용
+- **DATA**: 초기화된 전역변수, TEXT 이후 (S_CODE_BOOT), 읽기/쓰기
+- **BSS**: 초기화되지 않은 전역변수, DATA 이후 (S_CODE_BOOT), 부팅 시 0으로 설정
+- **HEAP**: 동적 할당, BSS 이후 (S_CODE_BOOT), 프로그래머 관리  
+- **STACK**: 지역변수 + 함수 호출, 0x1007FFFF부터 아래로 (S_CODE_BOOT), 자동 관리
 
 #### 디버깅 기법
 - **브레이크포인트**: 특정 지점에서 실행 중단
@@ -238,4 +297,5 @@ curl -X POST http://localhost:8000/tools/call \
 
 **Happy Learning! 🚀**
 
-*SungDB MCP와 함께하는 임베디드 시스템 마스터 여정을 시작하세요!*
+*GDB와 함께하는 임베디드 시스템 마스터 여정을 시작하세요!*
+

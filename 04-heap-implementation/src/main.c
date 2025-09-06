@@ -111,8 +111,7 @@ void* simple_malloc(int size) {
     print_number(size);
     print_string(" bytes (aligned: ");
     print_number(aligned_size);
-    print_string(") at ");
-    print_hex((unsigned int)ptr);
+    print_string(") bytes");
     print_string("\n");
     
     return ptr;
@@ -122,23 +121,16 @@ void* simple_malloc(int size) {
 void simple_free(void* ptr) {
     if (!ptr) return;
     
-    print_string("  FREE: ");
-    print_hex((unsigned int)ptr);
+    print_string("  FREE: memory");
     print_string(" (Note: Bump allocator doesn't actually free)\n");
     
     // Bump allocator는 실제로 메모리를 해제하지 않습니다
     // 실제 구현에서는 더 복잡한 알고리즘이 필요합니다
 }
 
-// 힙 상태 출력
+// 힙 상태 출력  
 void print_heap_status() {
     print_string("\n=== Heap Status ===\n");
-    print_string("Heap base: ");
-    print_hex((unsigned int)heap_memory);
-    print_string("\n");
-    print_string("Current position: ");
-    print_hex((unsigned int)heap_current);
-    print_string("\n");
     print_string("Total allocated: ");
     print_number(total_allocated);
     print_string(" / ");
@@ -148,15 +140,15 @@ void print_heap_status() {
     print_number(allocation_count);
     print_string("\n");
     
-    print_string("\nAllocation details:\n");
-    for (int i = 0; i < allocation_count; i++) {
-        print_string("  #");
-        print_number(allocations[i].allocation_id);
-        print_string(": ");
-        print_hex((unsigned int)allocations[i].address);
-        print_string(" (");
-        print_number(allocations[i].size);
-        print_string(" bytes)\n");
+    if (allocation_count > 0) {
+        print_string("Recent allocations:\n");
+        for (int i = 0; i < allocation_count && i < 5; i++) {
+            print_string("  #");
+            print_number(allocations[i].allocation_id);
+            print_string(": ");
+            print_number(allocations[i].size);
+            print_string(" bytes\n");
+        }
     }
     print_string("\n");
 }

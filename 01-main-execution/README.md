@@ -1,13 +1,13 @@
-# 1. Main 함수 실행 과정 분석 - SungDB MCP로 디버깅하기
+# 1. Main 함수 실행 과정 분석 - GDB로 디버깅하기
 
-이 예제에서는 Cortex-M33 마이크로컨트롤러에서 C 프로그램의 main 함수가 어떻게 실행되는지 SungDB MCP를 활용하여 단계별로 분석해보겠습니다.
+이 예제에서는 Cortex-M33 마이크로컨트롤러에서 C 프로그램의 main 함수가 어떻게 실행되는지 GDB를 활용하여 단계별로 분석해보겠습니다.
 
 ## 📋 학습 목표
 
 - Cortex-M33 부팅 과정 이해
 - 벡터 테이블과 리셋 벡터의 역할
 - main 함수에 도달하기까지의 과정
-- SungDB MCP를 활용한 실시간 디버깅
+- GDB를 활용한 실시간 디버깅
 
 ## 🛠️ 사전 준비
 
@@ -17,11 +17,13 @@
 make clean && make
 ```
 
-### 2. SungDB MCP 서버 실행 (HTTP 모드 - 디버깅용)
+### 2. GDB 디버깅 환경 준비
 ```bash
-# 새 터미널에서 실행
-cd ~/sungdb-mcp
-./start_server.sh --http
+# arm-none-eabi-gdb가 설치되어 있는지 확인
+arm-none-eabi-gdb --version
+
+# QEMU가 설치되어 있는지 확인
+qemu-system-arm --version
 ```
 
 ## 🔍 코드 분석
@@ -37,246 +39,150 @@ cd ~/sungdb-mcp
 
 ```bash
 # 터미널 1: QEMU 실행 (GDB 서버 모드)
-qemu-system-arm -machine mps2-an505 -cpu cortex-m33 -kernel build/cortex-m33-hello-world.elf -nographic -monitor none -serial stdio -s -S
+qemu-system-arm -machine mps2-an505 -cpu cortex-m33 \
+    -kernel build/cortex-m33-hello-world.elf \
+    -nographic -monitor none -serial stdio -s -S
 ```
 
 ```bash
-# 터미널 2: SungDB MCP로 GDB 디버깅 시작
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_start",
-    "arguments": {
-      "gdb_path": "arm-none-eabi-gdb"
-    }
-  }'
+# 터미널 2: GDB 시작 및 QEMU 연결
+arm-none-eabi-gdb build/cortex-m33-hello-world.elf
+
+# GDB 프롬프트에서 실행
+(gdb) target remote localhost:1234
+(gdb) load
 ```
 
 **예상 결과:**
-```json
-{
-  "status": "success",
-  "session_id": "your-session-id",
-  "message": "GDB session started"
-}
+```
+Remote debugging using localhost:1234
+Loading section .text, size 0xa30 lma 0x0
+Start address 0x4c, entry point 0x4c
 ```
 
-### 2단계: ELF 파일 로드
+### 2단계: 벡터 테이블 분석
 
 ```bash
-# ELF 파일을 GDB에 로드
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_load",
-    "arguments": {
-      "session_id": "your-session-id",
-      "program": "build/cortex-m33-hello-world.elf"
-    }
-  }'
+# GDB에서 벡터 테이블 확인 (0x00000000 주소부터)
+(gdb) x/8xw 0x00000000
 ```
 
-### 3단계: QEMU GDB 서버에 연결
-
-```bash
-# QEMU의 GDB 서버에 연결 (기본적으로 localhost:1234)
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_command",
-    "arguments": {
-      "session_id": "your-session-id",
-      "command": "target remote localhost:1234"
-    }
-  }'
+**예상 결과:**
 ```
-
-### 4단계: 리셋 벡터 분석
-
-```bash
-# 벡터 테이블 확인 (0x08000000 주소부터)
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_examine",
-    "arguments": {
-      "session_id": "your-session-id",
-      "expression": "0x08000000",
-      "count": 8,
-      "format": "xw"
-    }
-  }'
+0x0:    0x2007ffff  0x0000004d  0x00000051  0x00000051
+0x10:   0x00000051  0x00000051  0x00000051  0x00000000
 ```
 
 **벡터 테이블 구조:**
-```
-0x08000000: 스택 포인터 초기값 (MSP)
-0x08000004: 리셋 벡터 (Reset_Handler 주소)
-0x08000008: NMI 핸들러
-0x0800000c: Hard Fault 핸들러
-...
-```
+- `0x00000000`: 스택 포인터 초기값 (MSP) = 0x2007ffff
+- `0x00000004`: 리셋 벡터 (Reset_Handler 주소) = 0x0000004d
 
-### 5단계: 리셋 핸들러에 브레이크포인트 설정
+### 3단계: 리셋 핸들러에 브레이크포인트 설정
 
 ```bash
 # Reset_Handler에 브레이크포인트 설정
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_set_breakpoint",
-    "arguments": {
-      "session_id": "your-session-id",
-      "location": "Reset_Handler"
-    }
-  }'
-```
+(gdb) break Reset_Handler
+(gdb) info registers pc sp
 
-### 6단계: 프로그램 실행 시작
-
-```bash
 # 프로그램 실행 시작
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_continue",
-    "arguments": {
-      "session_id": "your-session-id"
-    }
-  }'
+(gdb) continue
 ```
 
-**예상 동작:** Reset_Handler에서 실행이 멈춥니다.
+**예상 결과:**
+```
+Breakpoint 1 at 0x4c: file src/boot.s, line 25.
+pc             0x4c                0x4c <Reset_Handler>
+sp             0x2007ffff          0x2007ffff
+Continuing.
 
-### 7단계: Reset_Handler 코드 분석
+Breakpoint 1, Reset_Handler () at src/boot.s:25
+25          ldr sp, =__StackTop
+```
+
+**🔍 레지스터 분석:**
+- **PC (Program Counter)**: 0x4c - Reset_Handler 주소
+- **SP (Stack Pointer)**: 0x2007ffff - 벡터 테이블에서 설정된 스택 상단
+
+### 4단계: Reset_Handler 코드 분석
 
 ```bash
 # 현재 어셈블리 코드 확인
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_command",
-    "arguments": {
-      "session_id": "your-session-id",
-      "command": "disassemble"
-    }
-  }'
+(gdb) disassemble
+(gdb) stepi    # 어셈블리 명령어 단위로 실행
+(gdb) info registers
 ```
 
 **Reset_Handler의 주요 작업:**
 1. 스택 포인터 설정
-2. BSS 섹션 초기화 (전역 변수 0으로 초기화)
-3. DATA 섹션 복사 (ROM에서 RAM으로)
+2. BSS 섹션 초기화 (전역 변수 0으로 초기화)  
+3. DATA 섹션 복사 (Flash에서 RAM으로)
 4. main 함수 호출
 
-### 8단계: main 함수 진입 추적
+### 5단계: main 함수 진입 추적
 
 ```bash
 # main 함수에 브레이크포인트 설정
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_set_breakpoint",
-    "arguments": {
-      "session_id": "your-session-id",
-      "location": "main"
-    }
-  }'
+(gdb) break main
+(gdb) continue
+
+# main 함수 도달 후 레지스터 상태 확인
+(gdb) info registers
+(gdb) info frame
 ```
 
-```bash
-# 계속 실행하여 main에 도달
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_continue",
-    "arguments": {
-      "session_id": "your-session-id"
-    }
-  }'
-```
+**🔍 main 함수 진입 시 레지스터 변화:**
+- **PC**: main 함수 주소로 변경
+- **SP**: 스택 프레임 설정으로 약간 감소
+- **LR (Link Register)**: 리턴 주소 저장
 
-### 9단계: main 함수 내부 분석
+### 6단계: main 함수 내부 분석
 
 ```bash
 # 현재 소스 코드 위치 확인
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_command",
-    "arguments": {
-      "session_id": "your-session-id",
-      "command": "list"
-    }
-  }'
-```
+(gdb) list
+(gdb) info locals
 
-```bash
 # 스택 상태 확인
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_backtrace",
-    "arguments": {
-      "session_id": "your-session-id",
-      "full": true
-    }
-  }'
+(gdb) backtrace
+(gdb) info frame
 ```
 
-### 10단계: 함수 호출 추적
+### 7단계: 함수 호출 추적
 
 ```bash
 # print_string 함수에 브레이크포인트 설정
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_set_breakpoint",
-    "arguments": {
-      "session_id": "your-session-id",
-      "location": "print_string"
-    }
-  }'
+(gdb) break print_string
+(gdb) step    # 다음 라인으로 이동 (함수 내부 진입)
+(gdb) next    # 다음 라인으로 이동 (함수 호출을 한 번에 실행)
+
+# 함수 호출 전후 스택 포인터 변화 관찰
+(gdb) print $sp
+(gdb) step
+(gdb) print $sp
 ```
 
-```bash
-# 단계적 실행 (step into)
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_step",
-    "arguments": {
-      "session_id": "your-session-id"
-    }
-  }'
-```
+**🔍 함수 호출 시 레지스터 변화:**
+- **SP**: 함수 호출 시 감소 (스택 프레임 생성)
+- **LR**: 호출 지점의 다음 주소 저장
+- **PC**: 호출된 함수의 시작 주소로 변경
 
-### 11단계: 세미호스팅 동작 분석
+### 8단계: 세미호스팅 동작 분석
 
 ```bash
 # semihost_call 함수에서 레지스터 상태 확인
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_info_registers",
-    "arguments": {
-      "session_id": "your-session-id"
-    }
-  }'
+(gdb) break semihost_call
+(gdb) continue
+(gdb) info registers
+
+# 인라인 어셈블리 코드 분석 (SVC 명령어)
+(gdb) stepi
+(gdb) disassemble $pc,$pc+8
 ```
 
-```bash
-# 인라인 어셈블리 코드 분석
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_command",
-    "arguments": {
-      "session_id": "your-session-id",
-      "command": "stepi"
-    }
-  }'
-```
+**🔍 세미호스팅 레지스터 사용:**
+- **R0**: 세미호스팅 명령어 번호 (예: 0x04 = SYS_WRITE0)
+- **R1**: 매개변수 포인터
+- **SVC 명령어**: 시스템 서비스 호출로 QEMU가 처리
 
 ## 📊 학습 결과 정리
 
@@ -308,45 +214,32 @@ curl -X POST http://localhost:8000/tools/call \
 ### 1. 브레이크포인트 조작
 ```bash
 # 모든 브레이크포인트 확인
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_command",
-    "arguments": {
-      "session_id": "your-session-id",
-      "command": "info breakpoints"
-    }
-  }'
+(gdb) info breakpoints
+
+# 브레이크포인트 삭제
+(gdb) delete 1    # 브레이크포인트 번호 1 삭제
+(gdb) clear       # 현재 위치의 브레이크포인트 삭제
 ```
 
 ### 2. 메모리 덤프
 ```bash
-# 코드 영역 확인
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_examine",
-    "arguments": {
-      "session_id": "your-session-id",
-      "expression": "$pc",
-      "count": 10,
-      "format": "i"
-    }
-  }'
+# 코드 영역 확인 (어셈블리 명령어로)
+(gdb) x/10i $pc
+
+# 메모리 내용 확인 (16진수로)
+(gdb) x/16xb 0x20000000    # 16바이트를 바이트 단위로 출력
+(gdb) x/8xw 0x00000000     # 8워드를 워드 단위로 출력
 ```
 
 ### 3. 변수 관찰
 ```bash
 # 지역 변수 확인
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_command",
-    "arguments": {
-      "session_id": "your-session-id",
-      "command": "info locals"
-    }
-  }'
+(gdb) info locals
+(gdb) info args
+
+# 특정 변수 값 출력
+(gdb) print variable_name
+(gdb) print/x variable_name    # 16진수로 출력
 ```
 
 ## 🎯 퀴즈
