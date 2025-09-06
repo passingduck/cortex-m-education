@@ -38,6 +38,96 @@ qemu-system-arm -machine mps2-an505 -cpu cortex-m33 -kernel build/cortex-m33-hel
 - STACK 영역: `268959644` (0x1007FE2C)
 - TEXT 영역: `268435473` (0x10000011)
 
+## 📊 메모리 구조 시각화
+
+### Cortex-M33 메모리 맵 다이어그램
+
+```mermaid
+graph TD
+    A["Cortex-M33 Memory Map"] --> B["Flash/ROM (0x00000000-0x003FFFFF)"]
+    A --> C["SRAM (0x10000000-0x1007FFFF)"]
+    
+    B --> B1["TEXT Section<br/>• Program Code<br/>• Constants (RODATA)<br/>• Vector Table"]
+    
+    C --> C1["DATA Section<br/>• Initialized Globals<br/>• Static Variables"]
+    C --> C2["BSS Section<br/>• Uninitialized Globals<br/>• Zero-initialized"]
+    C --> C3["Heap Section<br/>• Dynamic Allocation<br/>• malloc/free"]
+    C --> C4["Stack Section<br/>• Local Variables<br/>• Function Parameters<br/>• Return Addresses"]
+    
+    style B fill:#e1f5fe
+    style C fill:#f3e5f5
+    style B1 fill:#b3e5fc
+    style C1 fill:#e1bee7
+    style C2 fill:#e1bee7
+    style C3 fill:#e1bee7
+    style C4 fill:#e1bee7
+```
+
+### 스택 프레임 구조 다이어그램
+
+```mermaid
+graph TD
+    A["Stack Growth Direction<br/>(High Address → Low Address)"] --> B["Function Call Stack"]
+    
+    B --> C["main() Stack Frame"]
+    C --> C1["Local Variables<br/>• local_var<br/>• temp_value"]
+    C --> C2["Function Parameters<br/>• argc, argv"]
+    C --> C3["Return Address<br/>• LR (Link Register)"]
+    C --> C4["Previous Frame Pointer<br/>• FP (Frame Pointer)"]
+    
+    B --> D["analyze_memory_regions() Stack Frame"]
+    D --> D1["Local Variables<br/>• stack_var<br/>• pointer_var"]
+    D --> D2["Function Parameters<br/>• depth"]
+    D --> D3["Return Address<br/>• LR"]
+    D --> D4["Previous Frame Pointer<br/>• FP"]
+    
+    B --> E["pointer_experiments() Stack Frame"]
+    E --> E1["Local Variables<br/>• ptr_to_base<br/>• new_value"]
+    E --> E2["Function Parameters<br/>• None"]
+    E --> E3["Return Address<br/>• LR"]
+    E --> E4["Previous Frame Pointer<br/>• FP"]
+    
+    style A fill:#ffecb3
+    style C fill:#c8e6c9
+    style D fill:#c8e6c9
+    style E fill:#c8e6c9
+```
+
+### 재귀 함수 스택 사용량 다이어그램
+
+```mermaid
+graph TD
+    A["Recursive Function Call"] --> B["power_of_16_recursive(4)"]
+    B --> C["power_of_16_recursive(3)"]
+    C --> D["power_of_16_recursive(2)"]
+    D --> E["power_of_16_recursive(1)"]
+    E --> F["power_of_16_recursive(0)"]
+    
+    F --> G["Base Case: return 1"]
+    G --> H["Return to power_of_16_recursive(1)"]
+    H --> I["Return to power_of_16_recursive(2)"]
+    I --> J["Return to power_of_16_recursive(3)"]
+    J --> K["Return to power_of_16_recursive(4)"]
+    K --> L["Final Result: 65536"]
+    
+    M["Stack Usage"] --> N["Each call uses ~16 bytes<br/>• Parameters: 4 bytes<br/>• Return address: 4 bytes<br/>• Local variables: 8 bytes"]
+    
+    style A fill:#ffecb3
+    style B fill:#e3f2fd
+    style C fill:#e3f2fd
+    style D fill:#e3f2fd
+    style E fill:#e3f2fd
+    style F fill:#c8e6c9
+    style G fill:#c8e6c9
+    style H fill:#fff3e0
+    style I fill:#fff3e0
+    style J fill:#fff3e0
+    style K fill:#fff3e0
+    style L fill:#ffcdd2
+    style M fill:#f3e5f5
+    style N fill:#f3e5f5
+```
+
 ## 🔍 메모리 영역별 상세 분석
 
 ### TEXT 영역 (코드 + 상수)
@@ -115,174 +205,62 @@ base_value = 2 (초기화된 값)
 #### BSS 영역 분석
 ```bash
 # BSS 영역 변수 주소 확인
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_command",
-    "arguments": {
-      "session_id": "your-session-id",
-      "command": "print &result_array"
-    }
-  }'
+(gdb) print &result_array
 
 # BSS 영역이 0으로 초기화되었는지 확인
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_examine",
-    "arguments": {
-      "session_id": "your-session-id",
-      "expression": "&result_array",
-      "count": 10,
-      "format": "xw"
-    }
-  }'
+(gdb) x/10xw &result_array
 ```
 
 ### 4단계: 함수 실행 중 메모리 변화 관찰
 
 ```bash
 # main 함수에 브레이크포인트 설정
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_set_breakpoint",
-    "arguments": {
-      "session_id": "your-session-id",
-      "location": "main"
-    }
-  }'
+(gdb) break main
 
 # analyze_memory_regions 함수에 브레이크포인트 설정
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_set_breakpoint",
-    "arguments": {
-      "session_id": "your-session-id",
-      "location": "analyze_memory_regions"
-    }
-  }'
+(gdb) break analyze_memory_regions
 
 # 프로그램 실행
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_continue",
-    "arguments": {
-      "session_id": "your-session-id"
-    }
-  }'
+(gdb) continue
 ```
 
 ### 5단계: 지역 변수(스택) 분석
 
 ```bash
 # 스택 프레임 정보 확인
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_command",
-    "arguments": {
-      "session_id": "your-session-id",
-      "command": "info frame"
-    }
-  }'
+(gdb) info frame
 
 # 지역 변수 확인
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_command",
-    "arguments": {
-      "session_id": "your-session-id",
-      "command": "info locals"
-    }
-  }'
+(gdb) info locals
 
 # 지역 변수 주소 확인
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_command",
-    "arguments": {
-      "session_id": "your-session-id",
-      "command": "print &local_var"
-    }
-  }'
+(gdb) print &local_var
 ```
 
 ### 6단계: 포인터 동작 분석
 
 ```bash
 # pointer_experiments 함수에 브레이크포인트
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_set_breakpoint",
-    "arguments": {
-      "session_id": "your-session-id",
-      "location": "pointer_experiments"
-    }
-  }'
+(gdb) break pointer_experiments
 
 # 포인터 값 확인
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_print",
-    "arguments": {
-      "session_id": "your-session-id",
-      "expression": "ptr_to_base"
-    }
-  }'
+(gdb) print ptr_to_base
 
 # 포인터가 가리키는 값 확인
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_print",
-    "arguments": {
-      "session_id": "your-session-id",
-      "expression": "*ptr_to_base"
-    }
-  }'
+(gdb) print *ptr_to_base
 ```
 
 ### 7단계: 메모리 변경 관찰
 
 ```bash
 # 포인터를 통한 값 변경 전
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_print",
-    "arguments": {
-      "session_id": "your-session-id",
-      "expression": "base_value"
-    }
-  }'
+(gdb) print base_value
 
 # 다음 라인 실행 (포인터를 통한 값 변경)
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_next",
-    "arguments": {
-      "session_id": "your-session-id"
-    }
-  }'
+(gdb) next
 
 # 값 변경 후 확인
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_print",
-    "arguments": {
-      "session_id": "your-session-id",
-      "expression": "base_value"
-    }
-  }'
+(gdb) print base_value
 ```
 
 ## 📊 메모리 맵 분석
@@ -291,26 +269,10 @@ curl -X POST http://localhost:8000/tools/call \
 
 ```bash
 # 심볼 테이블 확인
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_command",
-    "arguments": {
-      "session_id": "your-session-id",
-      "command": "info variables"
-    }
-  }'
+(gdb) info variables
 
 # 섹션 정보 확인
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_command",
-    "arguments": {
-      "session_id": "your-session-id",
-      "command": "maintenance info sections"
-    }
-  }'
+(gdb) maintenance info sections
 ```
 
 ### 메모리 영역별 주소 범위
@@ -328,15 +290,7 @@ curl -X POST http://localhost:8000/tools/call \
 ### 실험 1: 전역 변수 vs 지역 변수
 ```bash
 # 전역 변수와 지역 변수의 주소 비교
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_command",
-    "arguments": {
-      "session_id": "your-session-id",
-      "command": "print &base_value, &local_var"
-    }
-  }'
+(gdb) print &base_value, &local_var
 ```
 
 **관찰 포인트:**
@@ -346,40 +300,16 @@ curl -X POST http://localhost:8000/tools/call \
 ### 실험 2: 배열과 포인터 산술
 ```bash
 # 배열 요소들의 연속된 주소 확인
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_command",
-    "arguments": {
-      "session_id": "your-session-id",
-      "command": "print &result_array[0], &result_array[1], &result_array[2]"
-    }
-  }'
+(gdb) print &result_array[0], &result_array[1], &result_array[2]
 ```
 
 ### 실험 3: 상수 데이터 위치
 ```bash
 # 상수 테이블 주소 확인
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_command",
-    "arguments": {
-      "session_id": "your-session-id",
-      "command": "print &CONSTANT_TABLE"
-    }
-  }'
+(gdb) print &CONSTANT_TABLE
 
 # 상수 데이터 수정 시도 (실패해야 함)
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_command",
-    "arguments": {
-      "session_id": "your-session-id",
-      "command": "set variable CONSTANT_TABLE[0] = 999"
-    }
-  }'
+(gdb) set variable CONSTANT_TABLE[0] = 999
 ```
 
 ## 📈 성능과 메모리 최적화
@@ -393,15 +323,7 @@ curl -X POST http://localhost:8000/tools/call \
 ### 컴파일러 최적화 확인
 ```bash
 # 최적화된 코드 확인
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_command",
-    "arguments": {
-      "session_id": "your-session-id",
-      "command": "disassemble power_of_16_iterative"
-    }
-  }'
+(gdb) disassemble power_of_16_iterative
 ```
 
 ## 🎯 퀴즈

@@ -26,6 +26,112 @@ arm-none-eabi-gdb --version
 qemu-system-arm --version
 ```
 
+## 📊 Cortex-M33 부팅 과정 시각화
+
+### 벡터 테이블 구조 다이어그램
+
+```mermaid
+graph TD
+    A["Cortex-M33 Vector Table<br/>(0x00000000)"] --> B["Reset Vector<br/>(0x00000000)"]
+    A --> C["NMI Vector<br/>(0x00000004)"]
+    A --> D["Hard Fault Vector<br/>(0x00000008)"]
+    A --> E["Memory Management Vector<br/>(0x0000000C)"]
+    A --> F["Bus Fault Vector<br/>(0x00000010)"]
+    A --> G["Usage Fault Vector<br/>(0x00000014)"]
+    A --> H["SVCall Vector<br/>(0x0000002C)"]
+    A --> I["PendSV Vector<br/>(0x00000038)"]
+    A --> J["SysTick Vector<br/>(0x0000003C)"]
+    A --> K["External Interrupt Vectors<br/>(0x00000040+)"]
+    
+    B --> L["Reset_Handler<br/>(boot.s)"]
+    L --> M["SystemInit()<br/>(시스템 초기화)"]
+    M --> N["__libc_init_array()<br/>(C 라이브러리 초기화)"]
+    N --> O["main()<br/>(main.c)"]
+    
+    style A fill:#e1f5fe
+    style B fill:#ffcdd2
+    style L fill:#c8e6c9
+    style M fill:#fff3e0
+    style N fill:#f3e5f5
+    style O fill:#ffecb3
+```
+
+### 메모리 맵과 부팅 과정 다이어그램
+
+```mermaid
+graph TD
+    A["Cortex-M33 Memory Map"] --> B["Flash Memory<br/>(0x00000000-0x003FFFFF)"]
+    A --> C["SRAM<br/>(0x10000000-0x1007FFFF)"]
+    
+    B --> B1["Vector Table<br/>(0x00000000)"]
+    B --> B2["Reset_Handler Code<br/>(boot.s)"]
+    B --> B3["SystemInit Code<br/>(시스템 초기화)"]
+    B --> B4["main() Code<br/>(main.c)"]
+    
+    C --> C1["Stack<br/>(0x1007FFFF부터)"]
+    C --> C2["Heap<br/>(동적 할당 영역)"]
+    C --> C3["BSS Section<br/>(0으로 초기화)"]
+    C --> C4["DATA Section<br/>(초기값 복사)"]
+    
+    D["Boot Sequence"] --> E["1. Reset Vector 읽기"]
+    E --> F["2. Reset_Handler 실행"]
+    F --> G["3. Stack Pointer 설정"]
+    G --> H["4. SystemInit() 호출"]
+    H --> I["5. C 라이브러리 초기화"]
+    I --> J["6. main() 함수 호출"]
+    
+    style A fill:#e1f5fe
+    style B fill:#b3e5fc
+    style C fill:#e1bee7
+    style D fill:#ffecb3
+    style E fill:#fff3e0
+    style F fill:#fff3e0
+    style G fill:#fff3e0
+    style H fill:#fff3e0
+    style I fill:#fff3e0
+    style J fill:#c8e6c9
+```
+
+### 레지스터 상태 변화 다이어그램
+
+```mermaid
+graph TD
+    A["Cortex-M33 Core Registers"] --> B["General Purpose Registers<br/>(R0-R12)"]
+    A --> C["Stack Pointer (SP/R13)"]
+    A --> D["Link Register (LR/R14)"]
+    A --> E["Program Counter (PC/R15)"]
+    A --> F["Program Status Register (PSR)"]
+    
+    G["Boot Process Register Changes"] --> H["Reset State"]
+    H --> I["SP = 0x1007FFFF<br/>(Stack Top)"]
+    I --> J["PC = Reset_Handler<br/>(0x00000000)"]
+    J --> K["LR = 0xFFFFFFFF<br/>(Invalid Return)"]
+    K --> L["PSR = 0x01000000<br/>(Thumb Mode)"]
+    
+    M["After SystemInit"] --> N["SP = 0x1007FFFF<br/>(Stack Configured)"]
+    N --> O["PC = main()<br/>(User Code)"]
+    O --> P["LR = Return Address<br/>(Valid Return)"]
+    P --> Q["PSR = 0x01000000<br/>(Thumb + Privileged)"]
+    
+    style A fill:#e1f5fe
+    style B fill:#b3e5fc
+    style C fill:#ffcdd2
+    style D fill:#c8e6c9
+    style E fill:#fff3e0
+    style F fill:#f3e5f5
+    style G fill:#ffecb3
+    style H fill:#ffcdd2
+    style I fill:#c8e6c9
+    style J fill:#fff3e0
+    style K fill:#f3e5f5
+    style L fill:#e1bee7
+    style M fill:#ffecb3
+    style N fill:#c8e6c9
+    style O fill:#fff3e0
+    style P fill:#c8e6c9
+    style Q fill:#e1bee7
+```
+
 ## 🔍 코드 분석
 
 ### 프로그램 구조

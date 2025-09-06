@@ -38,6 +38,118 @@ qemu-system-arm -machine mps2-an505 -cpu cortex-m33 -kernel build/cortex-m33-hel
 - RAM/BSS 영역: DATA 이후 ~ (초기화되지 않은 전역변수)  
 - RAM/STACK 영역: `0x2007FFFF`부터 아래로 성장
 
+## 📊 메모리 레이아웃 시각화
+
+### Cortex-M33 메모리 맵 다이어그램
+
+```mermaid
+graph TD
+    A["Cortex-M33 Memory Map"] --> B["Flash Memory<br/>(0x00000000-0x003FFFFF)"]
+    A --> C["SRAM<br/>(0x10000000-0x1007FFFF)"]
+    
+    B --> B1["Vector Table<br/>(0x00000000)"]
+    B --> B2["TEXT Section<br/>• Program Code<br/>• Functions<br/>• Constants (RODATA)"]
+    
+    C --> C1["DATA Section<br/>• Initialized Globals<br/>• Static Variables<br/>• String Literals"]
+    C --> C2["BSS Section<br/>• Uninitialized Globals<br/>• Zero-initialized<br/>• Arrays"]
+    C --> C3["Heap Section<br/>• Dynamic Allocation<br/>• malloc/free<br/>• Runtime Memory"]
+    C --> C4["Stack Section<br/>• Local Variables<br/>• Function Parameters<br/>• Return Addresses"]
+    
+    D["Memory Layout Example"] --> E["TEXT: 2612 bytes<br/>• power_of_16_iterative()<br/>• CONSTANT_TABLE[]<br/>• String literals"]
+    E --> F["DATA: 12 bytes<br/>• base_value = 2<br/>• exponent = 16<br/>• message pointer"]
+    F --> G["BSS: 48 bytes<br/>• result_array[10]<br/>• calculation_count<br/>• dynamic_pointer"]
+    
+    style A fill:#e1f5fe
+    style B fill:#b3e5fc
+    style C fill:#e1bee7
+    style B1 fill:#ffcdd2
+    style B2 fill:#c8e6c9
+    style C1 fill:#fff3e0
+    style C2 fill:#f3e5f5
+    style C3 fill:#e8f5e8
+    style C4 fill:#fce4ec
+    style D fill:#ffecb3
+    style E fill:#c8e6c9
+    style F fill:#fff3e0
+    style G fill:#f3e5f5
+```
+
+### 메모리 영역별 변수 배치 다이어그램
+
+```mermaid
+graph TD
+    A["Variable Memory Layout"] --> B["TEXT Section (Flash)"]
+    A --> C["DATA Section (RAM)"]
+    A --> D["BSS Section (RAM)"]
+    A --> E["Stack Section (RAM)"]
+    
+    B --> B1["Functions<br/>• power_of_16_iterative()<br/>• power_of_16_recursive()<br/>• analyze_memory_regions()"]
+    B --> B2["Constants<br/>• CONSTANT_TABLE[5]<br/>• String literals<br/>• Read-only data"]
+    
+    C --> C1["Initialized Globals<br/>• base_value = 2<br/>• exponent = 16<br/>• message = \"...\""]
+    C --> C2["Static Variables<br/>• static int counter<br/>• Initialized values"]
+    
+    D --> D1["Uninitialized Globals<br/>• result_array[10]<br/>• calculation_count<br/>• dynamic_pointer"]
+    D --> D2["Zero-initialized<br/>• All values = 0<br/>• Arrays = {0,0,0...}<br/>• Pointers = NULL"]
+    
+    E --> E1["Local Variables<br/>• int local_var<br/>• int temp_value<br/>• Function parameters"]
+    E --> E2["Stack Frame<br/>• Return address<br/>• Frame pointer<br/>• Local storage"]
+    
+    style A fill:#e1f5fe
+    style B fill:#b3e5fc
+    style C fill:#e1bee7
+    style D fill:#f3e5f5
+    style E fill:#ffecb3
+    style B1 fill:#c8e6c9
+    style B2 fill:#c8e6c9
+    style C1 fill:#fff3e0
+    style C2 fill:#fff3e0
+    style D1 fill:#e1bee7
+    style D2 fill:#e1bee7
+    style E1 fill:#ffcdd2
+    style E2 fill:#ffcdd2
+```
+
+### 메모리 주소 공간 다이어그램
+
+```mermaid
+graph TD
+    A["Memory Address Space"] --> B["0x00000000<br/>Flash Start"]
+    A --> C["0x003FFFFF<br/>Flash End (4MB)"]
+    A --> D["0x10000000<br/>SRAM Start"]
+    A --> E["0x1007FFFF<br/>SRAM End (512KB)"]
+    
+    F["Flash Memory Layout"] --> G["0x00000000: Vector Table<br/>• Reset Vector<br/>• Exception Vectors"]
+    G --> H["0x00000040: Program Code<br/>• Functions<br/>• Constants"]
+    H --> I["0x003FFFFF: Flash End"]
+    
+    J["SRAM Memory Layout"] --> K["0x10000000: DATA Section<br/>• Initialized globals<br/>• Static variables"]
+    K --> L["0x10000020: BSS Section<br/>• Uninitialized globals<br/>• Zero-initialized"]
+    L --> M["0x10000050: Heap Section<br/>• Dynamic allocation<br/>• Runtime memory"]
+    M --> N["0x1007FFFF: Stack Section<br/>• Local variables<br/>• Function calls"]
+    
+    O["Address Growth Direction"] --> P["Flash: Low → High<br/>• Sequential code execution<br/>• Constant data access"]
+    O --> Q["SRAM: Low → High (DATA/BSS)<br/>• High → Low (Stack)<br/>• Dynamic allocation"]
+    
+    style A fill:#e1f5fe
+    style B fill:#ffcdd2
+    style C fill:#ffcdd2
+    style D fill:#c8e6c9
+    style E fill:#c8e6c9
+    style F fill:#b3e5fc
+    style G fill:#fff3e0
+    style H fill:#fff3e0
+    style I fill:#fff3e0
+    style J fill:#e1bee7
+    style K fill:#f3e5f5
+    style L fill:#f3e5f5
+    style M fill:#e8f5e8
+    style N fill:#fce4ec
+    style O fill:#ffecb3
+    style P fill:#fff3e0
+    style Q fill:#f3e5f5
+```
+
 ## 🔍 메모리 영역별 상세 분석
 
 ### TEXT 영역 (코드 + 상수)

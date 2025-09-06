@@ -38,6 +38,116 @@ qemu-system-arm -machine mps2-an505 -cpu cortex-m33 -kernel build/cortex-m33-hel
 - STACK 영역: `268959644` (0x1007FE2C)
 - TEXT 영역: `268435473` (0x10000011)
 
+## 📊 힙 메모리 관리 시각화
+
+### 메모리 레이아웃과 힙 구조 다이어그램
+
+```mermaid
+graph TD
+    A["Cortex-M33 Memory Layout"] --> B["Flash Memory<br/>(0x00000000-0x003FFFFF)"]
+    A --> C["SRAM<br/>(0x10000000-0x1007FFFF)"]
+    
+    B --> B1["TEXT Section<br/>• Program Code<br/>• Constants<br/>• Functions"]
+    
+    C --> C1["DATA Section<br/>• Initialized Globals<br/>• Static Variables"]
+    C --> C2["BSS Section<br/>• Uninitialized Globals<br/>• Zero-initialized"]
+    C --> C3["Heap Section<br/>• Dynamic Allocation<br/>• Bump Allocator<br/>• Runtime Memory"]
+    C --> C4["Stack Section<br/>• Local Variables<br/>• Function Calls<br/>• Auto Management"]
+    
+    D["Heap Management"] --> E["Bump Allocator<br/>• Simple allocation<br/>• No fragmentation<br/>• Linear growth"]
+    E --> F["Heap Pointer<br/>• heap_current<br/>• Tracks next free<br/>• Grows upward"]
+    F --> G["Allocated Blocks<br/>• Test 1: 100 bytes<br/>• Test 2: 200 bytes<br/>• Test 3: 50 bytes"]
+    
+    style A fill:#e1f5fe
+    style B fill:#b3e5fc
+    style C fill:#e1bee7
+    style B1 fill:#c8e6c9
+    style C1 fill:#fff3e0
+    style C2 fill:#f3e5f5
+    style C3 fill:#e8f5e8
+    style C4 fill:#fce4ec
+    style D fill:#ffecb3
+    style E fill:#c8e6c9
+    style F fill:#fff3e0
+    style G fill:#f3e5f5
+```
+
+### Bump Allocator 동작 과정 다이어그램
+
+```mermaid
+graph TD
+    A["Bump Allocator Process"] --> B["Initialization"]
+    A --> C["Allocation (malloc)"]
+    A --> D["Deallocation (free)"]
+    A --> E["Memory Layout"]
+    
+    B --> B1["heap_memory = 0x10000060<br/>heap_current = heap_memory<br/>heap_size = 0x1000"]
+    
+    C --> C1["Test 1: malloc(100)"]
+    C1 --> C2["Allocate 100 bytes<br/>heap_current += 100<br/>Return pointer"]
+    C2 --> C3["Test 2: malloc(200)"]
+    C3 --> C4["Allocate 200 bytes<br/>heap_current += 200<br/>Return pointer"]
+    C4 --> C5["Test 3: malloc(50)"]
+    C5 --> C6["Allocate 50 bytes<br/>heap_current += 50<br/>Return pointer"]
+    
+    D --> D1["Free Operation<br/>• No actual deallocation<br/>• Memory remains allocated<br/>• Simple but limited"]
+    
+    E --> E1["Memory Layout After Allocation"]
+    E1 --> E2["0x10000060: Test 1 (100 bytes)<br/>0x100000C4: Test 2 (200 bytes)<br/>0x1000018C: Test 3 (50 bytes)<br/>0x100001BE: Next free location"]
+    
+    style A fill:#e1f5fe
+    style B fill:#c8e6c9
+    style C fill:#fff3e0
+    style D fill:#ffcdd2
+    style E fill:#f3e5f5
+    style B1 fill:#c8e6c9
+    style C1 fill:#fff3e0
+    style C2 fill:#fff3e0
+    style C3 fill:#fff3e0
+    style C4 fill:#fff3e0
+    style C5 fill:#fff3e0
+    style C6 fill:#fff3e0
+    style D1 fill:#ffcdd2
+    style E1 fill:#f3e5f5
+    style E2 fill:#f3e5f5
+```
+
+### 힙 vs 스택 메모리 관리 비교 다이어그램
+
+```mermaid
+graph TD
+    A["Memory Management Comparison"] --> B["Stack Management"]
+    A --> C["Heap Management"]
+    
+    B --> B1["Automatic Management<br/>• Function entry/exit<br/>• LIFO (Last In, First Out)<br/>• Compiler controlled"]
+    B1 --> B2["Advantages<br/>• Fast allocation/deallocation<br/>• No fragmentation<br/>• Automatic cleanup"]
+    B2 --> B3["Limitations<br/>• Fixed size at compile time<br/>• Limited lifetime<br/>• Stack overflow risk"]
+    
+    C --> C1["Manual Management<br/>• malloc/free calls<br/>• Arbitrary order<br/>• Programmer controlled"]
+    C1 --> C2["Advantages<br/>• Dynamic size<br/>• Flexible lifetime<br/>• Large memory available"]
+    C2 --> C3["Challenges<br/>• Memory leaks<br/>• Fragmentation<br/>• Manual cleanup required"]
+    
+    D["Memory Layout"] --> E["Stack (High → Low)<br/>• Local variables<br/>• Function parameters<br/>• Return addresses"]
+    D --> F["Heap (Low → High)<br/>• Dynamic allocation<br/>• Runtime memory<br/>• Bump allocator"]
+    
+    G["Collision Risk"] --> H["Stack grows down<br/>Heap grows up<br/>Monitor heap_current<br/>Prevent overlap"]
+    
+    style A fill:#e1f5fe
+    style B fill:#c8e6c9
+    style C fill:#fff3e0
+    style B1 fill:#c8e6c9
+    style B2 fill:#c8e6c9
+    style B3 fill:#ffcdd2
+    style C1 fill:#fff3e0
+    style C2 fill:#fff3e0
+    style C3 fill:#ffcdd2
+    style D fill:#f3e5f5
+    style E fill:#e1bee7
+    style F fill:#e8f5e8
+    style G fill:#ffecb3
+    style H fill:#ffecb3
+```
+
 ## 🔍 메모리 영역별 상세 분석
 
 ### TEXT 영역 (코드 + 상수)
