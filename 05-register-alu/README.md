@@ -8,7 +8,7 @@
 - ARM Cortex-M33의 레지스터 구조 이해
 - ALU의 다양한 연산 방식 학습
 - ISA(Instruction Set Architecture)에 따른 레지스터 변화 관찰
-- GDB와 SungDB MCP를 통한 실시간 레지스터 상태 분석
+- GDB를 통한 실시간 레지스터 상태 분석
 - 다양한 연산자와 플래그 동작 실습
 
 ---
@@ -223,8 +223,8 @@ sudo apt-get install gdb-multiarch
 # QEMU 설치
 sudo apt-get install qemu-system-arm
 
-# SungDB MCP 설치 (선택)
-# 자세한 설치 방법은 SungDB 문서 참조
+# GDB 다중 아키텍처 지원 확인
+gdb-multiarch --version
 ```
 
 ---
@@ -393,43 +393,33 @@ CPSR: Z=1 (결과가 0이므로 Zero 플래그 설정)
 
 ---
 
-## 📊 SungDB MCP 활용 (고급)
+## 📊 고급 GDB 활용 기법
 
-### SungDB MCP 연결
+### 레지스터 자동 추적
 
 ```bash
-# SungDB MCP 서버 시작
-sungdb-mcp start
+# 레지스터 변화 자동 표시
+(gdb) display /x $r0
+(gdb) display /x $r1
+(gdb) display /x $r2
+(gdb) display /x $cpsr
 
-# 프로젝트 연결
-curl -X POST "http://localhost:8000/connect" \
-  -H "Content-Type: application/json" \
-  -d '{"project_path": "/home/user/cortex-m-education/05-register-alu"}'
+# 조건부 브레이크포인트
+(gdb) break main.c:42 if $r0 == 0x12345678
 ```
 
-### 레지스터 상태 실시간 모니터링
+### 레지스터 상태 로깅
 
 ```bash
-# 현재 레지스터 상태 조회
-curl -X GET "http://localhost:8000/registers"
+# GDB 로그 활성화
+(gdb) set logging on register_log.txt
+(gdb) set logging overwrite on
 
-# 특정 레지스터 값 설정
-curl -X POST "http://localhost:8000/set_register" \
-  -H "Content-Type: application/json" \
-  -d '{"register": "r0", "value": "0x12345678"}'
-
-# 단계별 실행 및 레지스터 추적
-curl -X POST "http://localhost:8000/step_and_trace"
-```
-
-### 레지스터 변화 시각화
-
-```bash
-# 레지스터 변화 히스토리 조회
-curl -X GET "http://localhost:8000/register_history?register=r0&steps=10"
-
-# ALU 연산 결과 분석
-curl -X GET "http://localhost:8000/alu_analysis?operation=add&operands=r0,r1"
+# 명령어 자동 실행
+(gdb) commands 1
+> info registers r0 r1 r2 cpsr
+> continue
+> end
 ```
 
 ---

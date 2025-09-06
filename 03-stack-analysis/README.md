@@ -63,7 +63,7 @@ int calculation_count;       // 자동으로 0으로 초기화
 int* dynamic_pointer;        // 자동으로 NULL로 초기화
 ```
 
-## 🚀 SungDB MCP를 활용한 메모리 분석
+## 🚀 GDB를 활용한 스택 분석
 
 ### 1단계: QEMU와 GDB 연결
 
@@ -73,45 +73,22 @@ qemu-system-arm -machine mps2-an505 -cpu cortex-m33 -kernel build/cortex-m33-hel
 ```
 
 ```bash
-# 터미널 2: SungDB MCP 서버 시작 (HTTP 모드)
-cd ~/sungdb-mcp
-./start_server.sh --http
+# 터미널 2: GDB 시작 및 연결
+gdb-multiarch build/cortex-m33-hello-world.elf
 ```
 
 ### 2단계: GDB 세션 시작 및 연결
 
 ```bash
-# GDB 세션 시작
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_start",
-    "arguments": {
-      "gdb_path": "arm-none-eabi-gdb"
-    }
-  }'
+# GDB에서 QEMU에 연결
+(gdb) target remote :1234
 
-# ELF 파일 로드
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_load",
-    "arguments": {
-      "session_id": "your-session-id",
-      "program": "build/cortex-m33-hello-world.elf"
-    }
-  }'
+# 프로그램 로드
+(gdb) load
 
-# QEMU에 연결
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_command",
-    "arguments": {
-      "session_id": "your-session-id",
-      "command": "target remote localhost:1234"
-    }
-  }'
+# 심볼 정보 확인
+(gdb) info files
+(gdb) info functions
 ```
 
 ### 3단계: 메모리 영역 분석
@@ -119,26 +96,14 @@ curl -X POST http://localhost:8000/tools/call \
 #### DATA 영역 분석
 ```bash
 # 전역 변수 주소 확인
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_command",
-    "arguments": {
-      "session_id": "your-session-id",
-      "command": "print &base_value"
-    }
-  }'
+(gdb) print &base_value
 
 # 초기화된 값 확인
-curl -X POST http://localhost:8000/tools/call \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "gdb_print",
-    "arguments": {
-      "session_id": "your-session-id",
-      "expression": "base_value"
-    }
-  }'
+(gdb) print base_value
+
+# 전역 변수들의 주소 범위 확인
+(gdb) print &global_counter
+(gdb) print &result_array
 ```
 
 **예상 결과:**
